@@ -8,4 +8,8 @@ http://www.theatreofnoise.com/2016/10/how-to-retrieve-photo-metadata-in-python.h
 # Exif orientation tag explained really clearly
 http://sylvana.net/jpegcrop/exif_orientation.html
 
+# Taking average of RGB colors
+https://stackoverflow.com/a/29576746
+https://www.youtube.com/watch?v=LKnqECcg6Gw
+
 
