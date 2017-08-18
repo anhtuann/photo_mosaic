@@ -1,6 +1,7 @@
 import os
 import fractions
 from PIL import Image
+from PIL import ImageStat
 
 # Analysis of the dataset
 
@@ -20,25 +21,22 @@ def extract_exif(image_path):
         img_ratio = fractions.Fraction(infos[40962], infos[40963])
     return (datepic, orientation, img_ratio)
 
+class CustomStat(ImageStat.Stat):
+    def _getmean2(self):
+        v = []
+        for i in self.bands:
+            v.append((self.sum2[i] / self.count[i])**0.5)
+        return v
+
 def avg_rgb(image_path):
     with Image.open(image_path) as image:
         try:
-            image.thumbnail((16, 16))
+            image.thumbnail((512, 512))
         except OSError:
             print(image_path, 'corrupted')
             return 'corrupted'
-        colors = image.getcolors(maxcolors=((2**8)**3))
-        total_pixels = len(colors)
-        avg_r = 0
-        avg_g = 0
-        avg_b = 0
-        for color in colors:
-            count = color[0]
-            r, g, b = color[1]
-            avg_r += (count/total_pixels)*r**2
-            avg_g += (count/total_pixels)*g**2
-            avg_b += (count/total_pixels)*b**2
-    return (int(avg_r**0.5), int(avg_g**0.5), int(avg_b**0.5))
+        avg_r, avg_g, avg_b = map(int, CustomStat(image)._getmean2())
+    return (avg_r, avg_g, avg_b)
 
 dataset = getfilespath('dataset')
 pics_dict = {}
