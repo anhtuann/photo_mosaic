@@ -12,4 +12,5 @@ http://sylvana.net/jpegcrop/exif_orientation.html
 https://stackoverflow.com/a/29576746
 https://www.youtube.com/watch?v=LKnqECcg6Gw
 
-
+# Common aspect ratio
+https://en.wikipedia.org/wiki/Aspect_ratio_(image)

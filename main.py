@@ -1,4 +1,5 @@
 import os
+import fractions
 from PIL import Image
 
 # Analysis of the dataset
@@ -16,12 +17,13 @@ def extract_exif(image_path):
         datepic = infos[36867]
         #modelcam = infos[272]
         orientation = infos[274]
-    return (datepic, orientation)
+        img_ratio = fractions.Fraction(infos[40962], infos[40963])
+    return (datepic, orientation, img_ratio)
 
 def avg_rgb(image_path):
     with Image.open(image_path) as image:
         try:
-            image.thumbnail((52, 52))
+            image.thumbnail((16, 16))
         except OSError:
             print(image_path, 'corrupted')
             return 'corrupted'
@@ -41,12 +43,21 @@ def avg_rgb(image_path):
 dataset = getfilespath('dataset')
 pics_dict = {}
 orientation_dict = {}
+common_aspect_ratios = [fractions.Fraction(1, 1),
+                        fractions.Fraction(5, 4),
+                        fractions.Fraction(4, 3),
+                        fractions.Fraction(3, 2),
+                        fractions.Fraction(5, 3),
+                        fractions.Fraction(16, 9),
+                        fractions.Fraction(3, 1)]
+
 for pic in dataset:
     file_extension = pic.split('.')[-1].lower()
     if file_extension == 'jpg' or file_extension == 'jpeg':
-        datepic, orientation = extract_exif(pic)
+        datepic, orientation, img_ratio = extract_exif(pic)
+        #avg_color = 1
         avg_color = avg_rgb(pic)
-        pics_dict[pic] = (datepic, orientation, avg_color)
+        pics_dict[pic] = (datepic, orientation, img_ratio, avg_color)
         try:
             orientation_dict[orientation] += 1
         except KeyError:
