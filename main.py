@@ -1,7 +1,7 @@
 import os
-import fractions
 from PIL import Image
 from PIL import ImageStat
+import json
 
 # Analysis of the dataset
 
@@ -18,7 +18,7 @@ def extract_exif(image_path):
         datepic = infos[36867]
         #modelcam = infos[272]
         orientation = infos[274]
-        img_ratio = fractions.Fraction(infos[40962], infos[40963])
+        img_ratio = infos[40962]/infos[40963]
     return (datepic, orientation, img_ratio)
 
 class CustomStat(ImageStat.Stat):
@@ -38,25 +38,32 @@ def avg_rgb(image_path):
         avg_r, avg_g, avg_b = map(int, CustomStat(image)._getmean2())
     return (avg_r, avg_g, avg_b)
 
-dataset = getfilespath('dataset')
-pics_dict = {}
-orientation_dict = {}
-common_aspect_ratios = [fractions.Fraction(1, 1),
-                        fractions.Fraction(5, 4),
-                        fractions.Fraction(4, 3),
-                        fractions.Fraction(3, 2),
-                        fractions.Fraction(5, 3),
-                        fractions.Fraction(16, 9),
-                        fractions.Fraction(3, 1)]
+def gen_dataset(root_path):
+    raw_dataset = getfilespath(root_path)
+    pics_dict = {}
+    for pic in raw_dataset:
+        file_extension = pic.split('.')[-1].lower()
+        if file_extension == 'jpg' or file_extension == 'jpeg':
+            datepic, orientation, img_ratio = extract_exif(pic)
+            avg_color = avg_rgb(pic)
+            pics_dict[pic] = (datepic, orientation, img_ratio, avg_color)
+    return pics_dict
 
-for pic in dataset:
-    file_extension = pic.split('.')[-1].lower()
-    if file_extension == 'jpg' or file_extension == 'jpeg':
-        datepic, orientation, img_ratio = extract_exif(pic)
-        #avg_color = 1
-        avg_color = avg_rgb(pic)
-        pics_dict[pic] = (datepic, orientation, img_ratio, avg_color)
-        try:
-            orientation_dict[orientation] += 1
-        except KeyError:
-            orientation_dict[orientation] = 1
+def save_dataset(dataset):
+    with open('analyzed_dataset.txt', 'w') as analyzed_dataset:
+        analyzed_dataset.write(json.dumps(dataset))
+    return 'Dataset analyzed and saved'
+
+def open_dataset(dataset_path):
+    with open(dataset_path, 'r') as analyzed_dataset:
+        pics_dict = json.loads(analyzed_dataset.read())
+    return pics_dict
+
+if not os.path.exists('analyzed_dataset.txt'):
+    print('Generating dataset analysis')
+    data = gen_dataset('dataset')
+    save_dataset(data)
+else:
+    pics_dict = open_dataset('analyzed_dataset.txt')
+    print('Analyzed dataset imported')
+
