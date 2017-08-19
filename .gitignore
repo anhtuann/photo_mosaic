@@ -1,2 +1,3 @@
 dataset/
 analyzed_dataset.txt
+__pycache__/
