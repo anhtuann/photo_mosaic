@@ -1,6 +1,7 @@
 import os
 from PIL import Image
 from PIL import ImageStat
+from PIL import ImageDraw
 import json
 
 # Analysis of the dataset
@@ -74,27 +75,44 @@ else:
 
 # Analysis of the model image
 
-def tiling(model_path):
-    tile_ratio = 4/3
-    tile_width = 12
-    tile_height = int(tile_width/tile_ratio)
-    tiles_boxes = []
+def resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize):
     with Image.open(model_path) as model:
+        model.thumbnail(thumbnail_maxsize)
+        tile_height = int(tile_width/tile_ratio)
         resized_width = (model.width//tile_width)*tile_width
         resized_height = (model.height//tile_height)*tile_height
-        for x in range(0, resized_width, resized_width//tile_width - 1):
-            for y in range(0, resized_height, resized_height//tile_height - 1):
-                tiles_boxes.append((x, y, x+tile_width, y+tile_height))
+        resized_model = model.resize((resized_width, resized_height))
+    return resized_model 
+
+def tiling(model_path, tile_ratio, tile_width, thumbnail_maxsize):
+    tile_height = int(tile_width/tile_ratio)
+    tiles_boxes = []
+    resized_model = resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize)
+    for y in range(0, resized_model.height, tile_height):
+        for x in range(0, resized_model.width, tile_width):
+            tiles_boxes.append((x, y, x+tile_width, y+tile_height))
     return tiles_boxes
 
-def model_analysis(model_path):
-    tiles = tiling(model_path)
+def model_analysis(model_path, tile_ratio, tile_width, thumbnail_maxsize):
+    tiles = tiling(model_path, tile_ratio, tile_width, thumbnail_maxsize)
+    resized_model = resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize)
     tiles_dict = {}
-    with Image.open(model_path) as model:
-        for tile in tiles:
-            model_tile = model.crop(tile)
-            tiles_dict[tile] = avg_rgb(model_tile)
+    for tile in tiles:
+        model_tile = resized_model.crop(tile)
+        tiles_dict[tile] = avg_rgb(model_tile)
     return tiles_dict
 
-print(model_analysis(list(pics_dict.keys())[3]))
+model_path = 'dataset/Tram/DSC_0809.JPG'
 
+def basic_mosaic(model_path, tile_ratio = 4/3, tile_width = 12, thumbnail_maxsize=(512, 512)):
+    tiles_dict = model_analysis(model_path, tile_ratio, tile_width, thumbnail_maxsize)
+    tiles_coords = sorted(list(tiles_dict.keys()), key=lambda coord: [coord[1], coord[3]])
+    resized_model = resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize)
+    mosaic = Image.new(resized_model.mode, resized_model.size)
+    draw_mosaic = ImageDraw.Draw(mosaic)
+    for tile in tiles_dict.keys():
+        draw_mosaic.rectangle(tile, fill=tiles_dict[tile])
+    mosaic.save('basic_mosaic.png')
+    return 'basic mosaic created'
+        
+basic_mosaic(model_path)
