@@ -91,13 +91,6 @@ def gen_palette(pics_dict):
     print('dataset palette generated')
     return palette_dict
 
-#if not os.path.exists('dataset_palette.txt'):
-#    datas = gen_palette(pics_dict)
-#    save_datas(datas, 'dataset_palette.txt')
-#    palette_dict = datas
-#else:
-#    palette_dict = open_datas('dataset_palette.txt')
-
 palette_dict = gen_palette(pics_dict)
 
 # Analysis of the model image
@@ -131,7 +124,7 @@ model_path = 'dataset/Tram/DSC_0809.JPG'
 tile_ratio = 4/3
 tile_width = 12
 tile_height = int(tile_width/tile_ratio)
-pic_maxsize = (128, 128)
+pic_maxsize = (512, 512)
 
 def basic_mosaic(model_path, tile_width, tile_height, pic_maxsize):
     tiles_dict = model_analysis(model_path, tile_width, tile_height, pic_maxsize)
@@ -143,10 +136,9 @@ def basic_mosaic(model_path, tile_width, tile_height, pic_maxsize):
     mosaic.save('basic_mosaic.png')
     return 'basic mosaic created'
 
-def photo_mosaic(model_path, palette_dict, tile_width, tile_height, pic_maxsize):
+def photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_maxsize):
     tiles_dict = model_analysis(model_path, tile_width, tile_height, pic_maxsize)
-    resized_model = resize_model(model_path, tile_width, tile_height, pic_maxsize)
-    mosaic = Image.new(resized_model.mode, resized_model.size)
+    mosaic_datas = {}
     for tile in tiles_dict.keys():
         tile_color = convert_color(sRGBColor(*tiles_dict[tile]), LabColor)
         deltaE_threshold = 4
@@ -157,13 +149,27 @@ def photo_mosaic(model_path, palette_dict, tile_width, tile_height, pic_maxsize)
             if new_deltaE <= deltaE_threshold:
                 close_pic = path[0]
                 break
-            elif new_deltaE < min_deltaE:
+            if new_deltaE < min_deltaE:
                 min_deltaE = new_deltaE
                 close_pic = path[0]
-        with Image.open(close_pic) as pic:
-            tile_pic = pic.resize((tile_width, tile_height))
-            mosaic.paste(tile_pic, tile)
+        mosaic_datas[tile] = close_pic
+    print('photo_mosaic_data generated')
+    return mosaic_datas
+
+def gen_photo_mosaic(photo_mosaic_data, tile_width, tile_height, pic_maxsize, scale=1):
+    new_width = pic_maxsize[0]
+    new_height = int(new_width/(tile_width/tile_height))
+    new_width = (new_width//tile_width)*tile_width*scale
+    new_height = (new_height//tile_height)*tile_height*scale
+    mosaic = Image.new('RGB', (new_width, new_height))
+    for box, path in photo_mosaic_data.items():
+        with Image.open(path) as pic:
+            tile_pic = pic.resize((tile_width*scale, tile_height*scale))
+            new_box = tuple(coord*scale for coord in box)
+            mosaic.paste(tile_pic, new_box)
     mosaic.save('photo_mosaic.png')
     return('photo mosaic created')
 
-print(photo_mosaic(model_path, palette_dict, tile_width, tile_height, pic_maxsize))
+print(basic_mosaic(model_path, tile_width, tile_height, pic_maxsize))
+mosaic_dict = photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_maxsize)
+print(gen_photo_mosaic(mosaic_dict, tile_width, tile_height, pic_maxsize, scale=50))
