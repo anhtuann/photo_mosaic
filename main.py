@@ -46,6 +46,7 @@ def avg_rgb(image_arg):
     return (avg_r, avg_g, avg_b)
 
 def gen_dataset(root_path):
+    print('Generating dataset analysis')
     raw_dataset = getfilespath(root_path)
     pics_dict = {}
     for pic in raw_dataset:
@@ -61,24 +62,23 @@ def gen_dataset(root_path):
                 pass
     return pics_dict
 
-def save_dataset(dataset):
-    with open('analyzed_dataset.txt', 'w') as analyzed_dataset:
-        analyzed_dataset.write(json.dumps(dataset))
-    return 'Dataset analyzed and saved'
+def save_datas(datas, file_path):
+    with open(file_path, 'w') as datas_file:
+        datas_file.write(json.dumps(datas))
+    print(file_path, 'saved')
 
-def open_dataset(dataset_path):
-    with open(dataset_path, 'r') as analyzed_dataset:
-        pics_dict = json.loads(analyzed_dataset.read())
-    return pics_dict
+def open_datas(dataset_path):
+    with open(dataset_path, 'r') as datas_file:
+        datas = json.loads(datas_file.read())
+    print(dataset_path, 'imported')
+    return datas
 
 if not os.path.exists('analyzed_dataset.txt'):
-    print('Generating dataset analysis')
-    data = gen_dataset('dataset')
-    save_dataset(data)
-    pics_dict = data
+    datas = gen_dataset('dataset')
+    save_datas(datas, 'analyzed_dataset.txt')
+    pics_dict = datas
 else:
-    pics_dict = open_dataset('analyzed_dataset.txt')
-    print('Analyzed dataset imported')
+    pics_dict = open_datas('analyzed_dataset.txt')
 
 def gen_palette(pics_dict):
     palette_dict = {}
@@ -90,6 +90,15 @@ def gen_palette(pics_dict):
             palette_dict[tuple(avg_lab)] = [pic]
     print('dataset palette generated')
     return palette_dict
+
+#if not os.path.exists('dataset_palette.txt'):
+#    datas = gen_palette(pics_dict)
+#    save_datas(datas, 'dataset_palette.txt')
+#    palette_dict = datas
+#else:
+#    palette_dict = open_datas('dataset_palette.txt')
+
+palette_dict = gen_palette(pics_dict)
 
 # Analysis of the model image
 
@@ -132,13 +141,13 @@ def basic_mosaic(model_path, tile_ratio=4/3, tile_width=12, thumbnail_maxsize=(2
     mosaic.save('basic_mosaic.png')
     return 'basic mosaic created'
 
-def photo_mosaic(model_path, palette_dict, tile_ratio=4/3, tile_width=12, thumbnail_maxsize=(512, 512)):
+def photo_mosaic(model_path, palette_dict, tile_ratio=4/3, tile_width=12, thumbnail_maxsize=(1024, 1024)):
     tiles_dict = model_analysis(model_path, tile_ratio, tile_width, thumbnail_maxsize)
     resized_model = resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize)
     mosaic = Image.new(resized_model.mode, resized_model.size)
     for tile in tiles_dict.keys():
         tile_color = convert_color(sRGBColor(*tiles_dict[tile]), LabColor)
-        deltaE_threshold = 10
+        deltaE_threshold = 4
         min_deltaE = 100
         close_pic = ''
         for color, path in palette_dict.items():
@@ -156,6 +165,5 @@ def photo_mosaic(model_path, palette_dict, tile_ratio=4/3, tile_width=12, thumbn
     return('photo mosaic created')
 
 print(basic_mosaic(model_path))
-palette_dict = gen_palette(pics_dict)
 print(photo_mosaic(model_path, palette_dict))
 
