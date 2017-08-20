@@ -17,3 +17,6 @@ https://en.wikipedia.org/wiki/Aspect_ratio_(image)
 
 # Amazing photomosaic implementation explained
 http://danielballan.github.io/photomosaic/docs/
+
+# Color difference explained
+https://en.wikipedia.org/wiki/Color_difference
