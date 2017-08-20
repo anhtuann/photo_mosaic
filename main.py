@@ -102,27 +102,25 @@ palette_dict = gen_palette(pics_dict)
 
 # Analysis of the model image
 
-def resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize):
+def resize_model(model_path, tile_width, tile_height, pic_maxsize):
     with Image.open(model_path) as model:
-        model.thumbnail(thumbnail_maxsize)
-        tile_height = int(tile_width/tile_ratio)
+        model.thumbnail(pic_maxsize)
         resized_width = (model.width//tile_width)*tile_width
         resized_height = (model.height//tile_height)*tile_height
         resized_model = model.resize((resized_width, resized_height))
     return resized_model
 
-def tiling(model_path, tile_ratio, tile_width, thumbnail_maxsize):
-    tile_height = int(tile_width/tile_ratio)
+def tiling(model_path, tile_width, tile_height, pic_maxsize):
     tiles_boxes = []
-    resized_model = resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize)
+    resized_model = resize_model(model_path, tile_width, tile_height, pic_maxsize)
     for y in range(0, resized_model.height, tile_height):
         for x in range(0, resized_model.width, tile_width):
             tiles_boxes.append((x, y, x+tile_width, y+tile_height))
     return tiles_boxes
 
-def model_analysis(model_path, tile_ratio, tile_width, thumbnail_maxsize):
-    tiles = tiling(model_path, tile_ratio, tile_width, thumbnail_maxsize)
-    resized_model = resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize)
+def model_analysis(model_path, tile_width, tile_height, pic_maxsize):
+    tiles = tiling(model_path, tile_width, tile_height, pic_maxsize)
+    resized_model = resize_model(model_path, tile_width, tile_height, pic_maxsize)
     tiles_dict = {}
     for tile in tiles:
         model_tile = resized_model.crop(tile)
@@ -130,10 +128,14 @@ def model_analysis(model_path, tile_ratio, tile_width, thumbnail_maxsize):
     return tiles_dict
 
 model_path = 'dataset/Tram/DSC_0809.JPG'
+tile_ratio = 4/3
+tile_width = 12
+tile_height = int(tile_width/tile_ratio)
+pic_maxsize = (128, 128)
 
-def basic_mosaic(model_path, tile_ratio=4/3, tile_width=12, thumbnail_maxsize=(2048, 2048)):
-    tiles_dict = model_analysis(model_path, tile_ratio, tile_width, thumbnail_maxsize)
-    resized_model = resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize)
+def basic_mosaic(model_path, tile_width, tile_height, pic_maxsize):
+    tiles_dict = model_analysis(model_path, tile_width, tile_height, pic_maxsize)
+    resized_model = resize_model(model_path, tile_width, tile_height, pic_maxsize)
     mosaic = Image.new(resized_model.mode, resized_model.size)
     draw_mosaic = ImageDraw.Draw(mosaic)
     for tile in tiles_dict.keys():
@@ -141,9 +143,9 @@ def basic_mosaic(model_path, tile_ratio=4/3, tile_width=12, thumbnail_maxsize=(2
     mosaic.save('basic_mosaic.png')
     return 'basic mosaic created'
 
-def photo_mosaic(model_path, palette_dict, tile_ratio=4/3, tile_width=12, thumbnail_maxsize=(1024, 1024)):
-    tiles_dict = model_analysis(model_path, tile_ratio, tile_width, thumbnail_maxsize)
-    resized_model = resize_model(model_path, tile_ratio, tile_width, thumbnail_maxsize)
+def photo_mosaic(model_path, palette_dict, tile_width, tile_height, pic_maxsize):
+    tiles_dict = model_analysis(model_path, tile_width, tile_height, pic_maxsize)
+    resized_model = resize_model(model_path, tile_width, tile_height, pic_maxsize)
     mosaic = Image.new(resized_model.mode, resized_model.size)
     for tile in tiles_dict.keys():
         tile_color = convert_color(sRGBColor(*tiles_dict[tile]), LabColor)
@@ -159,11 +161,9 @@ def photo_mosaic(model_path, palette_dict, tile_ratio=4/3, tile_width=12, thumbn
                 min_deltaE = new_deltaE
                 close_pic = path[0]
         with Image.open(close_pic) as pic:
-            tile_pic = pic.resize((tile_width, int(tile_width/tile_ratio)))
+            tile_pic = pic.resize((tile_width, tile_height))
             mosaic.paste(tile_pic, tile)
     mosaic.save('photo_mosaic.png')
     return('photo mosaic created')
 
-print(basic_mosaic(model_path))
-print(photo_mosaic(model_path, palette_dict))
-
+print(photo_mosaic(model_path, palette_dict, tile_width, tile_height, pic_maxsize))
