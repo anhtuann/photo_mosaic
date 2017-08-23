@@ -62,23 +62,25 @@ def gen_dataset(root_path):
                 pass
     return pics_dict
 
-def save_datas(datas, file_path):
+def save_dict(datas_dict, file_path):
     with open(file_path, 'w') as datas_file:
-        datas_file.write(json.dumps(datas))
+        formatted_datas = {str(k): v for k, v in datas_dict.items()}
+        datas_file.write(json.dumps(formatted_datas))
     print(file_path, 'saved')
 
-def open_datas(dataset_path):
+def open_dict(dataset_path):
     with open(dataset_path, 'r') as datas_file:
         datas = json.loads(datas_file.read())
+        formatted_datas = {eval(k): v for k, v in datas.items() if (k[0] == '(' and k[-1] == ')')}
     print(dataset_path, 'imported')
-    return datas
+    return formatted_datas
 
 if not os.path.exists('analyzed_dataset.txt'):
     datas = gen_dataset('dataset')
-    save_datas(datas, 'analyzed_dataset.txt')
+    save_dict(datas, 'analyzed_dataset.txt')
     pics_dict = datas
 else:
-    pics_dict = open_datas('analyzed_dataset.txt')
+    pics_dict = open_dict('analyzed_dataset.txt')
 
 def gen_palette(pics_dict):
     palette_dict = {}
@@ -124,7 +126,7 @@ model_path = 'dataset/Tram/DSC_0809.JPG'
 tile_ratio = 4/3
 tile_width = 12
 tile_height = int(tile_width/tile_ratio)
-pic_maxsize = (512, 512)
+pic_maxsize = (1024, 1024)
 
 def basic_mosaic(model_path, tile_width, tile_height, pic_maxsize):
     tiles_dict = model_analysis(model_path, tile_width, tile_height, pic_maxsize)
@@ -171,5 +173,11 @@ def gen_photo_mosaic(photo_mosaic_data, tile_width, tile_height, pic_maxsize, sc
     return('photo mosaic created')
 
 print(basic_mosaic(model_path, tile_width, tile_height, pic_maxsize))
-mosaic_dict = photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_maxsize)
-print(gen_photo_mosaic(mosaic_dict, tile_width, tile_height, pic_maxsize, scale=50))
+
+if not os.path.exists('mosaic_datas.txt'):
+    mosaic_dict = photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_maxsize)
+    save_dict(mosaic_dict, 'mosaic_datas.txt')
+else:
+    mosaic_dict = open_dict('mosaic_datas.txt')
+
+print(gen_photo_mosaic(mosaic_dict, tile_width, tile_height, pic_maxsize, scale=10))
