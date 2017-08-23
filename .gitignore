@@ -1,3 +1,5 @@
 dataset/
 analyzed_dataset.txt
+mosaic_datas.txt
 __pycache__/
+*.png
