@@ -1,5 +1,6 @@
 dataset/
 analyzed_dataset.txt
 mosaic_datas.txt
+sorted_dataset.txt
 __pycache__/
 *.png
