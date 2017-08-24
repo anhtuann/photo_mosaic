@@ -99,19 +99,28 @@ def NN_delta(dataset):
         min_deltaE = 100
         closest_pic = ''
         for pic, data in unsorted_datas.items():
-            new_deltaE = delta_e_cie2000(last_pic_datas[-1], data[-1])
+            new_deltaE = delta_e_cie2000(LabColor(*last_pic_datas[-1]), LabColor(*data[-1]))
             if new_deltaE < min_deltaE:
                 closest_pic = pic
                 min_deltaE = new_deltaE
-        sorted_datas.append((closest_pic, unsorted_datas[closest_pic]))
+        try:
+            sorted_datas.append((closest_pic, unsorted_datas[closest_pic]))
+        except KeyError:
+            for pic, pic_data in unsorted_datas.items():
+                sorted_datas.append((pic, pic_data))
+            return sorted_datas
         del(unsorted_datas[closest_pic])
     return sorted_datas
 
-#if not os.path.exists('sorted_dataset.txt'):
-#    with open('sorted_dataset.txt', 'w') as dataset_file:
-#        print(len(pics_dict.keys()))
-#        dataset_file.write(json.dumps(NN_delta(pics_dict)))
-#        print('dataset sorted by DeltaE00')
+if not os.path.exists('sorted_dataset.txt'):
+    with open('sorted_dataset.txt', 'w') as dataset_file:
+        sorted_pics_list = NN_delta(pics_dict)
+        dataset_file.write(json.dumps(sorted_pics_list))
+        print('dataset sorted by DeltaE00')
+else:
+    with open('sorted_dataset.txt', 'r') as dataset_file:
+        sorted_pics_list = [tuple(data) for data in json.loads(dataset_file.read())]
+
 
 def gen_palette(pics_dict):
     palette_dict = {}
