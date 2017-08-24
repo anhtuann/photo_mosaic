@@ -6,6 +6,8 @@ import json
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from colormath.color_diff import delta_e_cie2000
+import copy
+import random
 
 # Analysis of the dataset
 
@@ -71,7 +73,10 @@ def save_dict(datas_dict, file_path):
 def open_dict(dataset_path):
     with open(dataset_path, 'r') as datas_file:
         datas = json.loads(datas_file.read())
-        formatted_datas = {eval(k): v for k, v in datas.items() if (k[0] == '(' and k[-1] == ')')}
+        if list(datas.keys())[0][0] == '(' and list(datas.keys())[0][-1] == ')':
+            formatted_datas = {eval(k): v for k, v in datas.items()}
+        else:
+            formatted_datas = datas
     print(dataset_path, 'imported')
     return formatted_datas
 
@@ -81,6 +86,32 @@ if not os.path.exists('analyzed_dataset.txt'):
     pics_dict = datas
 else:
     pics_dict = open_dict('analyzed_dataset.txt')
+
+def NN_delta(dataset):
+    unsorted_datas = copy.copy(dataset)
+    first_index = random.randrange(len(unsorted_datas.keys()))
+    sorted_datas = []
+    first_key = list(unsorted_datas.keys())[first_index]
+    sorted_datas.append((first_key, unsorted_datas[first_key]))
+    del(unsorted_datas[first_key])
+    while len(unsorted_datas.keys()) > 0:
+        last_pic, last_pic_datas = sorted_datas[-1]
+        min_deltaE = 100
+        closest_pic = ''
+        for pic, data in unsorted_datas.items():
+            new_deltaE = delta_e_cie2000(last_pic_datas[-1], data[-1])
+            if new_deltaE < min_deltaE:
+                closest_pic = pic
+                min_deltaE = new_deltaE
+        sorted_datas.append((closest_pic, unsorted_datas[closest_pic]))
+        del(unsorted_datas[closest_pic])
+    return sorted_datas
+
+#if not os.path.exists('sorted_dataset.txt'):
+#    with open('sorted_dataset.txt', 'w') as dataset_file:
+#        print(len(pics_dict.keys()))
+#        dataset_file.write(json.dumps(NN_delta(pics_dict)))
+#        print('dataset sorted by DeltaE00')
 
 def gen_palette(pics_dict):
     palette_dict = {}
