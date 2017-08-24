@@ -166,6 +166,9 @@ def gen_photo_mosaic(photo_mosaic_data, tile_width, tile_height, pic_maxsize, sc
     mosaic = Image.new('RGB', (new_width, new_height))
     for box, path in photo_mosaic_data.items():
         with Image.open(path) as pic:
+            new_tile_width = tile_width*scale
+            new_tile_height = tile_height*scale
+            pic.draft(pic.mode, (new_tile_width*2, new_tile_height*2))
             tile_pic = pic.resize((tile_width*scale, tile_height*scale))
             new_box = tuple(coord*scale for coord in box)
             mosaic.paste(tile_pic, new_box)
