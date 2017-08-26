@@ -9,15 +9,35 @@ from colormath.color_diff import delta_e_cie2000
 import copy
 import random
 
-# Analysis of the dataset
-
 def getfilespath(root_path):
+    '''
+    Get list of files
+
+    Args:
+        root_path (str) : path of the root folder
+
+    Returns:
+        files (list) : recursively generated list of all files in root folder and its subdirectories
+    '''
     files = []
     for (dirpath, dirnames, filenames) in os.walk(root_path):
         files.extend([os.path.join(dirpath, filename) for filename in filenames])
     return files
 
 def extract_exif(image_path):
+    '''
+    Get exif infos
+
+    Args:
+        image_path (str) : path of the image we want the exif infos extracted
+
+    Returns:
+        a tuple which contains :
+            datepic (str) : date in the format YYYY:MM:DD HH:MM:SS
+            orientation (int) : from 1 to 8, refer to Exif spec for explanation
+            img_ratio (float) : aspect ratio of the image
+
+    '''
     with Image.open(image_path) as image:
         infos = image._getexif()
         # tags identified by ExifTags
@@ -28,6 +48,7 @@ def extract_exif(image_path):
     return (datepic, orientation, img_ratio)
 
 class CustomStat(ImageStat.Stat):
+    # mathematically correct average of two colors
     def _getmean2(self):
         v = []
         for i in self.bands:
@@ -35,6 +56,21 @@ class CustomStat(ImageStat.Stat):
         return v
 
 def avg_rgb(image_arg):
+    '''
+    Calculate the average color (rgb) of an image
+
+    Args:
+        image_arg (str) : path of the image
+            or
+        image_arg(PIL.Image.Image object) : Image object to interact with
+
+    Returns:
+        a tuple which contains :
+            avg_r (int)
+            avg_g (int)
+            avg_b (int)
+        all averages in the three R,G and B channels
+    '''
     if type(image_arg) is str:
         with Image.open(image_arg) as image:
             try:
@@ -48,6 +84,23 @@ def avg_rgb(image_arg):
     return (avg_r, avg_g, avg_b)
 
 def gen_dataset(root_path):
+    '''
+    Generate the dataset
+
+    Args:
+        root_path (str) : path of the root folder
+
+    Returns:
+        pics_dict (dict) with
+            keys : pic_path (str)
+            values : a tuple containing
+                        datepic (str)
+                        orientation (int)
+                        img_ratio (float)
+                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                        avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
+
+    '''
     print('Generating dataset analysis')
     raw_dataset = getfilespath(root_path)
     pics_dict = {}
@@ -80,14 +133,30 @@ def open_dict(dataset_path):
     print(dataset_path, 'imported')
     return formatted_datas
 
-if not os.path.exists('analyzed_dataset.txt'):
-    datas = gen_dataset('dataset')
-    save_dict(datas, 'analyzed_dataset.txt')
-    pics_dict = datas
-else:
-    pics_dict = open_dict('analyzed_dataset.txt')
-
 def NN_delta(dataset):
+    '''
+    Sort dataset using Nearest neighbour algorithm on DeltaE distance
+
+    Args:
+        dataset (dict) with
+            keys : pic_path (str)
+            values : a tuple containing
+                        datepic (str)
+                        orientation (int)
+                        img_ratio (float)
+                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                        avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
+
+    Returns:
+        sorted_datas (list) : list of tuples containing
+                                    pic_path (str) : path of the pic in the dataset
+                                    pic_datas (tuple) containing
+                                        datepic (str)
+                                        orientation (int)
+                                        img_ratio (float)
+                                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                                        avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
+    '''
     unsorted_datas = copy.copy(dataset)
     first_index = random.randrange(len(unsorted_datas.keys()))
     sorted_datas = []
@@ -112,17 +181,27 @@ def NN_delta(dataset):
         del(unsorted_datas[closest_pic])
     return sorted_datas
 
-if not os.path.exists('sorted_dataset.txt'):
-    with open('sorted_dataset.txt', 'w') as dataset_file:
-        sorted_pics_list = NN_delta(pics_dict)
-        dataset_file.write(json.dumps(sorted_pics_list))
-        print('dataset sorted by DeltaE00')
-else:
-    with open('sorted_dataset.txt', 'r') as dataset_file:
-        sorted_pics_list = [tuple(data) for data in json.loads(dataset_file.read())]
-
-
 def gen_palette(pics_dict):
+    '''
+    Generate palette of colors according to dataset
+
+    Args:
+        pics_dict (dict) with
+            keys : pic_path (str)
+            values : a tuple containing
+                        datepic (str)
+                        orientation (int)
+                        img_ratio (float)
+                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                        avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
+
+    Returns:
+        palette_dict (dict) :
+            keys : avg_lab (tuple) containing
+                    (lab_l, lab_a, lab_b) all floats
+            values : a list containing
+                        pic_path (str) : path of the pic
+    '''
     palette_dict = {}
     for pic, datas in pics_dict.items():
         datepic, orientation, img_ratio, avg_color, avg_lab = datas
@@ -133,11 +212,21 @@ def gen_palette(pics_dict):
     print('dataset palette generated')
     return palette_dict
 
-palette_dict = gen_palette(pics_dict)
-
-# Analysis of the model image
-
 def resize_model(model_path, tile_width, tile_height, pic_maxsize):
+    '''
+    Resize image to a good size for tiling process
+
+    Args:
+        model_path (str) : path of the image to resize
+        tile_width (int) : width of the tile
+        tile_height (int) : height of the tile
+        pic_maxsize (tuple) containing
+                maxwidth (int) : maximal width of the resized pic
+                maxheight (int) : maximal height of the resized pic
+
+    Returns:
+        resize_model (PIL.Image.Image object) : the resized image
+    '''
     with Image.open(model_path) as model:
         model.thumbnail(pic_maxsize)
         resized_width = (model.width//tile_width)*tile_width
@@ -146,6 +235,25 @@ def resize_model(model_path, tile_width, tile_height, pic_maxsize):
     return resized_model
 
 def tiling(model_path, tile_width, tile_height, pic_maxsize):
+    '''
+    Tiling the model image for matching process against dataset
+
+    Args:
+        model_path (str) : path of the image to resize
+        tile_width (int) : width of the tile
+        tile_height (int) : height of the tile
+        pic_maxsize (tuple) containing
+                maxwidth (int) : maximal width of the resized pic
+                maxheight (int) : maximal height of the resized pic
+
+    Returns:
+        tiles_boxes (list) containing
+            tile (tuple), a rectangle defined by
+                x_left_top_corner (int) : x coordinate of the tile's left top corner
+                y_left_top_corner (int) : y coordinate of the tile's left top corner
+                x_right_bottom_corner (int) : x coordinate of the tile's right bottom corner
+                y_right_bottom_corner (int) : y coordinated of the tile's right bottom corner
+    '''
     tiles_boxes = []
     resized_model = resize_model(model_path, tile_width, tile_height, pic_maxsize)
     for y in range(0, resized_model.height, tile_height):
@@ -154,6 +262,31 @@ def tiling(model_path, tile_width, tile_height, pic_maxsize):
     return tiles_boxes
 
 def model_analysis(model_path, tile_width, tile_height, pic_maxsize):
+    '''
+    Compute the average color of each tile in the model image
+
+    Args:
+        model_path (str) : path of the image to resize
+        tile_width (int) : width of the tile
+        tile_height (int) : height of the tile
+        pic_maxsize (tuple) containing
+                maxwidth (int) : maximal width of the resized pic
+                maxheight (int) : maximal height of the resized pic
+
+    Returns:
+        tiles_dict (dict) containing
+                keys : tile (tuple), a rectangle defined by
+                            x_left_top_corner (int) : x coordinate of the tile's left top corner
+                            y_left_top_corner (int) : y coordinate of the tile's left top corner
+                            x_right_bottom_corner (int) : x coordinate of the tile's right bottom corner
+                            y_right_bottom_corner (int) : y coordinated of the tile's right bottom corner
+                values : a tuple which contains
+                            avg_r (int)
+                            avg_g (int)
+                            avg_b (int)
+                            all averages in the three R,G and B channels
+
+    '''
     tiles = tiling(model_path, tile_width, tile_height, pic_maxsize)
     resized_model = resize_model(model_path, tile_width, tile_height, pic_maxsize)
     tiles_dict = {}
@@ -162,13 +295,21 @@ def model_analysis(model_path, tile_width, tile_height, pic_maxsize):
         tiles_dict[tile] = avg_rgb(model_tile)
     return tiles_dict
 
-model_path = 'dataset/Tram/DSC_0809.JPG'
-tile_ratio = 4/3
-tile_width = 12
-tile_height = int(tile_width/tile_ratio)
-pic_maxsize = (1024, 1024)
-
 def basic_mosaic(model_path, tile_width, tile_height, pic_maxsize):
+    '''
+    Generate basic mosaic with computed colors
+
+    Args:
+        model_path (str) : path of the image to resize
+        tile_width (int) : width of the tile
+        tile_height (int) : height of the tile
+        pic_maxsize (tuple) containing
+                maxwidth (int) : maximal width of the resized pic
+                maxheight (int) : maximal height of the resized pic
+
+    Returns:
+        message -> basic mosaic created
+    '''
     tiles_dict = model_analysis(model_path, tile_width, tile_height, pic_maxsize)
     resized_model = resize_model(model_path, tile_width, tile_height, pic_maxsize)
     mosaic = Image.new(resized_model.mode, resized_model.size)
@@ -179,6 +320,32 @@ def basic_mosaic(model_path, tile_width, tile_height, pic_maxsize):
     return 'basic mosaic created'
 
 def photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_maxsize):
+    '''
+    Generates the datas for the result image by matching tiles from the model image with pics from the dataset
+
+    Args:
+        model_path (str) : path of the image to resize
+        palette_dict (dict) with
+            keys : avg_lab (tuple) containing
+                    (lab_l, lab_a, lab_b) all floats
+            values : a list containing
+                        pic_path (str) : path of the pic
+        tile_width (int) : width of the tile
+        tile_height (int) : height of the tile
+        pic_maxsize (tuple) containing
+                maxwidth (int) : maximal width of the resized pic
+                maxheight (int) : maximal height of the resized pic
+
+    Returns:
+        mosaic_datas (dict) with
+                 keys : tile (tuple), a rectangle defined by
+                            x_left_top_corner (int) : x coordinate of the tile's left top corner
+                            y_left_top_corner (int) : y coordinate of the tile's left top corner
+                            x_right_bottom_corner (int) : x coordinate of the tile's right bottom corner
+                            y_right_bottom_corner (int) : y coordinated of the tile's right bottom corner
+                values:
+                    close_pic (str) : path of a pic with a color close to the one from the model image's tile
+    '''
     tiles_dict = model_analysis(model_path, tile_width, tile_height, pic_maxsize)
     mosaic_datas = {}
     for tile in tiles_dict.keys():
@@ -199,6 +366,28 @@ def photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_ma
     return mosaic_datas
 
 def gen_photo_mosaic(photo_mosaic_data, tile_width, tile_height, pic_maxsize, scale=1):
+    '''
+    Generate the photo mosaic picture
+
+    Args:
+        photo_mosaic_data (dict) with
+                keys : tile (tuple), a rectangle defined by
+                            x_left_top_corner (int) : x coordinate of the tile's left top corner
+                            y_left_top_corner (int) : y coordinate of the tile's left top corner
+                            x_right_bottom_corner (int) : x coordinate of the tile's right bottom corner
+                            y_right_bottom_corner (int) : y coordinated of the tile's right bottom corner
+                values:
+                    close_pic (str) : path of a pic with a color close to the one from the model image's tile
+        tile_width (int) : width of the tile
+        tile_height (int) : height of the tile
+        pic_maxsize (tuple) containing
+                maxwidth (int) : maximal width of the resized pic
+                maxheight (int) : maximal height of the resized pic
+        scale (int) : scale factor between the tile's size and the actual tile's picture's size
+
+    Returns: message -> photo mosaic created
+
+    '''
     new_width = pic_maxsize[0]
     new_height = int(new_width/(tile_width/tile_height))
     new_width = (new_width//tile_width)*tile_width*scale
@@ -215,12 +404,38 @@ def gen_photo_mosaic(photo_mosaic_data, tile_width, tile_height, pic_maxsize, sc
     mosaic.save('photo_mosaic.png')
     return('photo mosaic created')
 
-print(basic_mosaic(model_path, tile_width, tile_height, pic_maxsize))
+if __name__ == '__main__':
 
-if not os.path.exists('mosaic_datas.txt'):
-    mosaic_dict = photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_maxsize)
-    save_dict(mosaic_dict, 'mosaic_datas.txt')
-else:
-    mosaic_dict = open_dict('mosaic_datas.txt')
+    if not os.path.exists('analyzed_dataset.txt'):
+        datas = gen_dataset('dataset')
+        save_dict(datas, 'analyzed_dataset.txt')
+        pics_dict = datas
+    else:
+        pics_dict = open_dict('analyzed_dataset.txt')
 
-print(gen_photo_mosaic(mosaic_dict, tile_width, tile_height, pic_maxsize, scale=10))
+    if not os.path.exists('sorted_dataset.txt'):
+        with open('sorted_dataset.txt', 'w') as dataset_file:
+            sorted_pics_list = NN_delta(pics_dict)
+            dataset_file.write(json.dumps(sorted_pics_list))
+            print('dataset sorted by DeltaE00')
+    else:
+        with open('sorted_dataset.txt', 'r') as dataset_file:
+            sorted_pics_list = [tuple(data) for data in json.loads(dataset_file.read())]
+
+    palette_dict = gen_palette(pics_dict)
+
+    model_path = 'dataset/Tram/DSC_0809.JPG'
+    tile_ratio = 4/3
+    tile_width = 12
+    tile_height = int(tile_width/tile_ratio)
+    pic_maxsize = (1024, 1024)
+
+    print(basic_mosaic(model_path, tile_width, tile_height, pic_maxsize))
+
+    if not os.path.exists('mosaic_datas.txt'):
+        mosaic_dict = photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_maxsize)
+        save_dict(mosaic_dict, 'mosaic_datas.txt')
+    else:
+        mosaic_dict = open_dict('mosaic_datas.txt')
+
+    print(gen_photo_mosaic(mosaic_dict, tile_width, tile_height, pic_maxsize, scale=10))
