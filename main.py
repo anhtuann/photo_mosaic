@@ -149,7 +149,7 @@ def NN_delta(dataset):
 
     Returns:
         sorted_datas (list) : list of tuples containing
-                                    pic_path (str) : path of the pic in the dataset
+                                   pic_path (str) : path of the pic in the dataset
                                     pic_datas (tuple) containing
                                         datepic (str)
                                         orientation (int)
@@ -319,6 +319,41 @@ def basic_mosaic(model_path, tile_width, tile_height, pic_maxsize):
     mosaic.save('basic_mosaic.png')
     return 'basic mosaic created'
 
+def closest_pic(color, sorted_palette):
+    '''
+    Get the path of the pic with the closest color to the color in argument
+
+    Args:
+        color (colormath.color_objects.LabColor object) : color to compare the sorted_palette to
+        sorted_palette (list) : list of tuples containing
+                                   pic_path (str) : path of the pic in the dataset
+                                   pic_datas (tuple) containing
+                                        datepic (str)
+                                        orientation (int)
+                                        img_ratio (float)
+                                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                                        avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
+
+    Returns:
+        pic_path (str) : path of the pic with the closest color
+    '''
+    min_idx = 0
+    max_idx = len(sorted_palette) - 1
+    while min_idx < max_idx:
+        min_path, min_datas = sorted_palette[min_idx]
+        min_color = LabColor(*min_datas[-1])
+        max_path, max_datas = sorted_palette[max_idx]
+        max_color = LabColor(*max_datas[-1])
+        middle_idx = (min_idx + max_idx)//2
+        middle_path, middle_datas = sorted_palette[middle_idx]
+        middle_color = LabColor(*middle_datas[-1])
+        if delta_e_cie2000(min_color, middle_color) < delta_e_cie2000(max_color, middle_color):
+            max_idx = middle_idx
+        else:
+            min_idx = middle_idx
+    pic_path, pic_datas = sorted_palette[middle_idx]
+    return pic_path
+
 def photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_maxsize):
     '''
     Generates the datas for the result image by matching tiles from the model image with pics from the dataset
@@ -338,7 +373,7 @@ def photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_ma
 
     Returns:
         mosaic_datas (dict) with
-                 keys : tile (tuple), a rectangle defined by
+                keys : tile (tuple), a rectangle defined by
                             x_left_top_corner (int) : x coordinate of the tile's left top corner
                             y_left_top_corner (int) : y coordinate of the tile's left top corner
                             x_right_bottom_corner (int) : x coordinate of the tile's right bottom corner
