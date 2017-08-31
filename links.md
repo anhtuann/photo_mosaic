@@ -20,3 +20,6 @@ http://danielballan.github.io/photomosaic/docs/
 
 # Color difference explained
 https://en.wikipedia.org/wiki/Color_difference
+
+# DeltaE explained (useful for the deltaE_threshold)
+https://zschuessler.github.io/DeltaE/learn/
