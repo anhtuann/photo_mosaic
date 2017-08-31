@@ -7,7 +7,6 @@ from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from colormath.color_diff import delta_e_cie2000
 import copy
-import random
 
 def getfilespath(root_path):
     '''
@@ -66,9 +65,9 @@ def avg_rgb(image_arg):
 
     Returns:
         a tuple which contains :
-            avg_r (int)
-            avg_g (int)
-            avg_b (int)
+            avg_r (int) between 0 and 255
+            avg_g (int) between 0 and 255
+            avg_b (int) between 0 and 255
         all averages in the three R,G and B channels
     '''
     if type(image_arg) is str:
@@ -97,7 +96,7 @@ def gen_dataset(root_path):
                         datepic (str)
                         orientation (int)
                         img_ratio (float)
-                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                        avg_color (tuple) : (r, g, b) all floats 0.0 - 255.0
                         avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
 
     '''
@@ -108,7 +107,6 @@ def gen_dataset(root_path):
         file_extension = pic.split('.')[-1].lower()
         if file_extension == 'jpg' or file_extension == 'jpeg':
             datepic, orientation, img_ratio = extract_exif(pic)
-            #avg_r, avg_g, avg_b = avg_rgb(pic)
             try:
                 avg_color = sRGBColor(*avg_rgb(pic))
                 avg_lab = convert_color(avg_color, LabColor)
@@ -154,13 +152,21 @@ def NN_delta(dataset):
                                         datepic (str)
                                         orientation (int)
                                         img_ratio (float)
-                                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                                        avg_color (tuple) : (r, g, b) all floats 0.0 - 255.0
                                         avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
     '''
     unsorted_datas = copy.copy(dataset)
-    first_index = random.randrange(len(unsorted_datas.keys()))
+    black_rgb_color = sRGBColor(0, 0, 0)
+    black_lab_color = convert_color(black_rgb_color, LabColor)
+    darkest_pic, darkest_pic_datas = list(unsorted_datas.items())[0]
+    darkest_pic_color = LabColor(*darkest_pic_datas[-1])
+    for pic, pic_datas in unsorted_datas.items():
+        pic_lab_color = LabColor(*pic_datas[-1])
+        if delta_e_cie2000(black_lab_color, pic_lab_color) < delta_e_cie2000(black_lab_color, darkest_pic_color):
+            darkest_pic = pic
+            darkest_pic_color = pic_lab_color
     sorted_datas = []
-    first_key = list(unsorted_datas.keys())[first_index]
+    first_key = darkest_pic
     sorted_datas.append((first_key, unsorted_datas[first_key]))
     del(unsorted_datas[first_key])
     while len(unsorted_datas.keys()) > 0:
@@ -180,6 +186,33 @@ def NN_delta(dataset):
             return sorted_datas
         del(unsorted_datas[closest_pic])
     return sorted_datas
+
+def gen_sorted_palette(sorted_datas):
+    '''
+    Args:
+        sorted_datas (list) : list of tuples containing
+                               pic_path (str) : path of the pic in the dataset
+                               pic_datas (tuple) containing
+                                    datepic (str)
+                                    orientation (int)
+                                    img_ratio (float)
+                                    avg_color (tuple) : (r, g, b) all floats 0.0 - 255.0
+                                    avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
+    Returns:
+    '''
+    color_width = 2
+    palette_width = len(sorted_datas)*color_width
+    palette_height = 200
+    palette = Image.new('RGB', (palette_width, palette_height))
+    draw_palette = ImageDraw.Draw(palette)
+    left_top_corner = (0, 0)
+    right_bottom_corner = (color_width, palette_height)
+    for pic, pic_datas in sorted_datas:
+        pic_rgb_color = tuple(map(int, pic_datas[-2]))
+        draw_palette.rectangle(left_top_corner+right_bottom_corner, fill=pic_rgb_color)
+        left_top_corner = (left_top_corner[0]+color_width, 0)
+        right_bottom_corner = (right_bottom_corner[0]+color_width, palette_height)
+    palette.save('sorted_palette.png')
 
 def gen_palette(pics_dict):
     '''
@@ -350,11 +383,9 @@ def closest_pic(tile_color, sorted_palette):
         delta_to_max = delta_e_cie2000(max_color, tile_color)
         if delta_to_min < deltaE_threshold:
             chosen_idx = min_idx
-            print('really good match')
             break
         elif delta_to_max < deltaE_threshold:
             chosen_idx = max_idx
-            print('really good match')
             break
         elif delta_to_min < delta_to_max:
             max_idx = middle_idx
@@ -461,7 +492,7 @@ if __name__ == '__main__':
         with open('sorted_dataset.txt', 'r') as dataset_file:
             sorted_pics_list = [tuple(data) for data in json.loads(dataset_file.read())]
 
-    palette_dict = gen_palette(pics_dict)
+    gen_sorted_palette(sorted_pics_list)
 
     model_path = 'dataset/Tram/DSC_0809.JPG'
     tile_ratio = 4/3
