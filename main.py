@@ -133,54 +133,6 @@ def open_dict(dataset_path):
     print(dataset_path, 'imported')
     return formatted_datas
 
-def NN_delta(dataset):
-    '''
-    Sort dataset using Nearest neighbour algorithm on DeltaE distance
-
-    Args:
-        dataset (dict) with
-            keys : pic_path (str)
-            values : a tuple containing
-                        datepic (str)
-                        orientation (int)
-                        img_ratio (float)
-                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
-                        avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
-
-    Returns:
-        sorted_datas (list) : list of tuples containing
-                                    pic_path (str) : path of the pic in the dataset
-                                    pic_datas (tuple) containing
-                                        datepic (str)
-                                        orientation (int)
-                                        img_ratio (float)
-                                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
-                                        avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
-    '''
-    unsorted_datas = copy.copy(dataset)
-    first_index = random.randrange(len(unsorted_datas.keys()))
-    sorted_datas = []
-    first_key = list(unsorted_datas.keys())[first_index]
-    sorted_datas.append((first_key, unsorted_datas[first_key]))
-    del(unsorted_datas[first_key])
-    while len(unsorted_datas.keys()) > 0:
-        last_pic, last_pic_datas = sorted_datas[-1]
-        min_deltaE = 100
-        closest_pic = ''
-        for pic, data in unsorted_datas.items():
-            new_deltaE = delta_e_cie2000(LabColor(*last_pic_datas[-1]), LabColor(*data[-1]))
-            if new_deltaE < min_deltaE:
-                closest_pic = pic
-                min_deltaE = new_deltaE
-        try:
-            sorted_datas.append((closest_pic, unsorted_datas[closest_pic]))
-        except KeyError:
-            for pic, pic_data in unsorted_datas.items():
-                sorted_datas.append((pic, pic_data))
-            return sorted_datas
-        del(unsorted_datas[closest_pic])
-    return sorted_datas
-
 def gen_palette(pics_dict):
     '''
     Generate palette of colors according to dataset
@@ -412,15 +364,6 @@ if __name__ == '__main__':
         pics_dict = datas
     else:
         pics_dict = open_dict('analyzed_dataset.txt')
-
-    if not os.path.exists('sorted_dataset.txt'):
-        with open('sorted_dataset.txt', 'w') as dataset_file:
-            sorted_pics_list = NN_delta(pics_dict)
-            dataset_file.write(json.dumps(sorted_pics_list))
-            print('dataset sorted by DeltaE00')
-    else:
-        with open('sorted_dataset.txt', 'r') as dataset_file:
-            sorted_pics_list = [tuple(data) for data in json.loads(dataset_file.read())]
 
     palette_dict = gen_palette(pics_dict)
 
