@@ -76,9 +76,10 @@ def avg_rgb(image_arg):
             except OSError:
                 print(image_arg, 'corrupted')
                 return 'corrupted'
-            avg_r, avg_g, avg_b = map(int, CustomStat(image)._getmean2())
+            # discarding alpha channel for png files
+            avg_r, avg_g, avg_b = map(int, CustomStat(image)._getmean2()[:3])
     else:
-        avg_r, avg_g, avg_b = map(int, CustomStat(image_arg)._getmean2())
+        avg_r, avg_g, avg_b = map(int, CustomStat(image_arg)._getmean2()[:3])
     return (avg_r, avg_g, avg_b)
 
 def gen_dataset(root_path):
@@ -95,7 +96,7 @@ def gen_dataset(root_path):
                         datepic (str)
                         orientation (int)
                         img_ratio (float)
-                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                        avg_color (tuple) : (r, g, b) all floats 0.0 - 255.0
                         avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
 
     '''
@@ -142,7 +143,7 @@ def gen_palette(pics_dict):
                         datepic (str)
                         orientation (int)
                         img_ratio (float)
-                        avg_color (tuple) : (r, g, b) all floats 0.0 - 1.0
+                        avg_color (tuple) : (r, g, b) all floats 0.0 - 255.0
                         avg_lab (tuple) : (lab_l, lab_a, lab_b) all floats
 
     Returns:
@@ -301,7 +302,7 @@ def photo_mosaic_datas(model_path, palette_dict, tile_width, tile_height, pic_ma
     for tile in tiles_dict.keys():
         tile_color = convert_color(sRGBColor(*tiles_dict[tile]), LabColor)
         deltaE_threshold = 4
-        min_deltaE = 100
+        min_deltaE = 1000
         close_pic = ''
         for color, path in palette_dict.items():
             new_deltaE = delta_e_cie2000(tile_color, LabColor(*color))
@@ -365,7 +366,7 @@ if __name__ == '__main__':
 
     palette_dict = gen_palette(pics_dict)
 
-    model_path = 'dataset/Tram/DSC_0809.JPG'
+    model_path = 'wedding.png'
     tile_ratio = 4/3
     tile_width = 12
     tile_height = int(tile_width/tile_ratio)
