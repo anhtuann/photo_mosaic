@@ -4,3 +4,5 @@ networkx==1.11
 numpy==1.13.1
 olefile==0.44
 Pillow==4.2.1
+python-slugify==1.2.4
+Unidecode==0.4.21

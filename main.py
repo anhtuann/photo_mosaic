@@ -1,12 +1,16 @@
 import os
+import shutil
 from PIL import Image
 from PIL import ImageStat
 from PIL import ImageDraw
+from slugify import slugify
 import json
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 from colormath.color_diff import delta_e_cie2000
 import copy
+
+img_extensions = ['png', 'jpg', 'jpeg']
 
 def getfilespath(root_path):
     '''
@@ -22,6 +26,23 @@ def getfilespath(root_path):
     for (dirpath, dirnames, filenames) in os.walk(root_path):
         files.extend([os.path.join(dirpath, filename) for filename in filenames])
     return files
+
+def flatten_dataset(files):
+    '''
+    Copy all the images in the dataset into a single directory
+
+    Args:
+        files (list) : recursively generated list of all files in root folder and its subdirectories
+    '''
+    for data in files:
+        file_extension = data.split('.')[-1].lower()
+        if file_extension in img_extensions:
+            filedate = extract_exif(data)[0]
+            folder = data.split('/')[1]
+            filename = folder + '-' + filedate
+            slug = slugify(filename) + '.' + file_extension
+            shutil.copyfile(data, new_dataset + '/' + slug)
+    print('dataset flattened')
 
 def extract_exif(image_path):
     '''
@@ -475,6 +496,12 @@ def gen_photo_mosaic(photo_mosaic_data, tile_width, tile_height, pic_maxsize, sc
     return('photo mosaic created')
 
 if __name__ == '__main__':
+
+    new_dataset = 'new_dataset'
+    if not os.path.exists(new_dataset):
+        flatten_dataset(getfilespath('dataset'))
+    else:
+        print('dataset flattened already')
 
     if not os.path.exists('analyzed_dataset.txt'):
         datas = gen_dataset('dataset')
